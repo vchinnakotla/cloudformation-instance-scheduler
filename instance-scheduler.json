@@ -1,0 +1,452 @@
+{
+	"AWSTemplateFormatVersion": "2010-09-09",
+	"Description": "Lambda that is used to start/stop a list of instances. This lambda is triggered by Cloudwatch cron rules",
+	"Parameters": {
+		"StartTimeHour": {
+			"Description": "Start Time Hour of the day",
+			"Type": "Number",
+			"AllowedValues": [
+				0,
+				1,
+				2,
+				3,
+				4,
+				5,
+				6,
+				7,
+				8,
+				9,
+				10,
+				11,
+				12,
+				13,
+				14,
+				15,
+				16,
+				17,
+				18,
+				19,
+				20,
+				21,
+				22,
+				23
+			]
+		},
+		"StartTimeMinute": {
+			"Description": "Start Time Minutes of the hour",
+			"Default": 0,
+			"AllowedValues": [
+				0,
+				1,
+				2,
+				3,
+				4,
+				5,
+				6,
+				7,
+				8,
+				9,
+				10,
+				11,
+				12,
+				13,
+				14,
+				15,
+				16,
+				17,
+				18,
+				19,
+				20,
+				21,
+				22,
+				23,
+				24,
+				25,
+				26,
+				27,
+				28,
+				29,
+				30,
+				31,
+				32,
+				33,
+				34,
+				35,
+				36,
+				37,
+				38,
+				39,
+				40,
+				41,
+				42,
+				43,
+				44,
+				45,
+				46,
+				47,
+				48,
+				49,
+				50,
+				51,
+				52,
+				53,
+				54,
+				55,
+				56,
+				57,
+				58,
+				59
+			],
+			"Type": "Number"
+		},
+		"StopTimeHour": {
+			"Description": "Stop Time Hour of the day",
+			"Type": "Number",
+			"AllowedValues": [
+				0,
+				1,
+				2,
+				3,
+				4,
+				5,
+				6,
+				7,
+				8,
+				9,
+				10,
+				11,
+				12,
+				13,
+				14,
+				15,
+				16,
+				17,
+				18,
+				19,
+				20,
+				21,
+				22,
+				23
+			]
+		},
+		"StopTimeMinute": {
+			"Description": "Stop Time Minutes of the hour",
+			"Default": 0,
+			"AllowedValues": [
+				0,
+				1,
+				2,
+				3,
+				4,
+				5,
+				6,
+				7,
+				8,
+				9,
+				10,
+				11,
+				12,
+				13,
+				14,
+				15,
+				16,
+				17,
+				18,
+				19,
+				20,
+				23,
+				24,
+				25,
+				26,
+				27,
+				28,
+				29,
+				30,
+				31,
+				32,
+				33,
+				34,
+				35,
+				36,
+				37,
+				38,
+				39,
+				40,
+				41,
+				42,
+				43,
+				44,
+				45,
+				46,
+				47,
+				48,
+				49,
+				50,
+				51,
+				52,
+				53,
+				54,
+				55,
+				56,
+				57,
+				58,
+				59
+			],
+			"Type": "Number"
+		},
+		"InstanceList": {
+			"Description": "List of instances that needs to be start/stopped",
+			"Type": "List<AWS::EC2::Instance::Id>"
+		},
+		"SchedulingActive": {
+			"Type": "String",
+			"AllowedValues": [
+				"ENABLED",
+				"DISABLED"
+			],
+			"Default": "ENABLED",
+			"Description": "Enable or Disable scheduling."
+		}
+	},
+	"Resources": {
+		"StartRule": {
+			"Type": "AWS::Events::Rule",
+			"Properties": {
+				"Description": "Rule that invokes the lambda to start the instances",
+				"Name": "start-instances",
+				"ScheduleExpression": {
+					"Fn::Sub": [
+						"cron(${StartTimeMinute} ${StartTimeHour} * * ? *)",
+						{
+							"StartTimeHour": {
+								"Ref": "StartTimeHour"
+							},
+							"StartTimeMinute": {
+								"Ref": "StartTimeMinute"
+							}
+						}
+					]
+				},
+				"State": {
+					"Ref": "SchedulingActive"
+				},
+				"Targets": [
+					{
+						"Arn": {
+							"Fn::GetAtt": [
+								"StartStopInstanceLambda",
+								"Arn"
+							]
+						},
+						"Id": "StartInstances"
+					}
+				]
+			}
+		},
+		"StopRule": {
+			"Type": "AWS::Events::Rule",
+			"Properties": {
+				"Description": "Rule that invokes the lambda to stop the instances",
+				"Name": "stop-instances",
+				"ScheduleExpression": {
+					"Fn::Sub": [
+						"cron(${StopTimeMinute} ${StopTimeHour} * * ? *)",
+						{
+							"StartTimeHour": {
+								"Ref": "StopTimeHour"
+							},
+							"StartTimeMinute": {
+								"Ref": "StopTimeMinute"
+							}
+						}
+					]
+				},
+				"State": {
+					"Ref": "SchedulingActive"
+				},
+				"Targets": [
+					{
+						"Arn": {
+							"Fn::GetAtt": [
+								"StartStopInstanceLambda",
+								"Arn"
+							]
+						},
+						"Id": "StopInstances"
+					}
+				]
+			}
+		},
+		"StartRuleInvokeStartStopInstanceLambda": {
+			"Type": "AWS::Lambda::Permission",
+			"Properties": {
+				"Action": "lambda:InvokeFunction",
+				"FunctionName": {
+					"Fn::GetAtt": [
+						"StartStopInstanceLambda",
+						"Arn"
+					]
+				},
+				"Principal": "events.amazonaws.com",
+				"SourceArn": {
+					"Fn::GetAtt": [
+						"StartRule",
+						"Arn"
+					]
+				}
+			}
+		},
+		"StopRuleInvokeStartStopInstanceLambda": {
+			"Type": "AWS::Lambda::Permission",
+			"Properties": {
+				"Action": "lambda:InvokeFunction",
+				"FunctionName": {
+					"Fn::GetAtt": [
+						"StartStopInstanceLambda",
+						"Arn"
+					]
+				},
+				"Principal": "events.amazonaws.com",
+				"SourceArn": {
+					"Fn::GetAtt": [
+						"StopRule",
+						"Arn"
+					]
+				}
+			}
+		},
+		"StartStopInstanceLambda": {
+			"Type": "AWS::Lambda::Function",
+			"Properties": {
+				"Code": {
+					"ZipFile": {
+						"Fn::Join": [
+							"\n",
+							[
+								"import json",
+								"from os import environ",
+								"import logging",
+								"logging.getLogger().setLevel(logging.INFO)",
+								"import boto3",
+								"client = boto3.client('ec2')",
+								"",
+								"instances = environ['INSTANCES'].split(\",\")",
+								"start_rule = environ['STARTRULE']",
+								"stop_rule= environ['STOPRULE']",
+								"",
+								"def handler(event, context):",
+								"\tlogger = logging.getLogger()",
+								"\tlogger.info(\"{}\".format(event))",
+								"\trule =  event['resources'][0]",
+								"\tif rule == start_rule:",
+								"\t\tresponse = client.start_instances(InstanceIds=instances)",
+								"\tif rule == stop_rule:",
+								"\t\tresponse = client.stop_instances(InstanceIds=instances)",
+								"\treturn response"
+							]
+						]
+					}
+				},
+				"Description": "This function is used to start and stop the instances triggered by Cloudwatch Scheduler",
+				"Environment": {
+					"Variables": {
+						"INSTANCES": {
+							"Fn::Join": [
+								",",
+								{
+									"Ref": "InstanceList"
+								}
+							]
+						},
+						"STARTRULE": {
+							"Fn::Join": [
+								"",
+								[
+									"arn:aws:events:",
+									{
+										"Ref": "AWS::Region"
+									},
+									":",
+									{
+										"Ref": "AWS::AccountId"
+									},
+									":rule/start-instances"
+								]
+							]
+						},
+						"STOPRULE": {
+							"Fn::Join": [
+								"",
+								[
+									"arn:aws:events:",
+									{
+										"Ref": "AWS::Region"
+									},
+									":",
+									{
+										"Ref": "AWS::AccountId"
+									},
+									":rule/stop-instances"
+								]
+							]
+						}
+					}
+				},
+				"FunctionName": "start-stop-instances",
+				"Handler": "index.handler",
+				"Role": {
+					"Fn::GetAtt": [
+						"StartStopInstanceLambdaRole",
+						"Arn"
+					]
+				},
+				"Runtime": "python3.7",
+				"Timeout": 30
+			}
+		},
+		"StartStopInstanceLambdaRole": {
+			"Type": "AWS::IAM::Role",
+			"Properties": {
+				"AssumeRolePolicyDocument": {
+					"Version": "2012-10-17",
+					"Statement": [
+						{
+							"Effect": "Allow",
+							"Principal": {
+								"Service": [
+									"lambda.amazonaws.com"
+								]
+							},
+							"Action": [
+								"sts:AssumeRole"
+							]
+						}
+					]
+				},
+				"Description": "Lambda role with basic access",
+				"ManagedPolicyArns": [
+					"arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+				],
+				"Policies": [
+					{
+						"PolicyName": "startStopEc2",
+						"PolicyDocument": {
+							"Version": "2012-10-17",
+							"Statement": [
+								{
+									"Effect": "Allow",
+									"Action": [
+										"ec2:StartInstances",
+										"ec2:StopInstances"
+									],
+									"Resource": "*"
+								}
+							]
+						}
+					}
+				],
+				"RoleName": "start-stop-instances-lambda"
+			}
+		}
+	}
+}
